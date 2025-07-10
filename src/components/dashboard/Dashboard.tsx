@@ -11,7 +11,7 @@ export const Dashboard = () => {
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-gray-50">
-        <DashboardSidebar activeView={activeView} setActiveView={setActiveView} />
+        <DashboardSidebar activeView={activeView} onViewChange={setActiveView} />
         
         <div className="flex-1 flex flex-col">
           <DashboardHeader />
