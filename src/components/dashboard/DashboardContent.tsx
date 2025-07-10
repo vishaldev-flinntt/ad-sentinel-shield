@@ -4,6 +4,7 @@ import { MonitoringView } from "./views/MonitoringView";
 import { KeywordsView } from "./views/KeywordsView";
 import { CasesView } from "./views/CasesView";
 import { AlertsView } from "./views/AlertsView";
+import { IntegrationsView } from "./views/IntegrationsView";
 import { UsersView } from "./views/UsersView";
 import { SettingsView } from "./views/SettingsView";
 
@@ -23,6 +24,8 @@ export const DashboardContent = ({ activeView }: DashboardContentProps) => {
       return <CasesView />;
     case "alerts":
       return <AlertsView />;
+    case "integrations":
+      return <IntegrationsView />;
     case "users":
       return <UsersView />;
     case "settings":

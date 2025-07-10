@@ -1,5 +1,6 @@
 
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -211,6 +212,15 @@ export const LoginForm = () => {
                 Create Account
               </Button>
             </form>
+            
+            <div className="text-center">
+              <p className="text-sm text-gray-600">
+                Want a full trial? {" "}
+                <Link to="/signup" className="text-blue-600 hover:underline font-medium">
+                  Start your 30-day free trial
+                </Link>
+              </p>
+            </div>
           </TabsContent>
         </Tabs>
       </CardContent>
