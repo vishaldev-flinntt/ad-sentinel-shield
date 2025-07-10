@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -9,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Shield, Check, ArrowLeft } from "lucide-react";
+import { Shield, Check, ArrowLeft, CreditCard } from "lucide-react";
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -94,7 +93,7 @@ export default function Signup() {
     return true;
   };
 
-  const handleSignup = async () => {
+  const handleSignupWithStripe = async () => {
     if (!formData.agreedToTrial || !formData.agreedToTerms) {
       toast({
         title: "Agreement Required",
@@ -107,30 +106,67 @@ export default function Signup() {
     setLoading(true);
     
     try {
+      // First create the account
       const fullName = `${formData.firstName} ${formData.lastName}`;
       const success = await register(formData.email, formData.password, fullName);
       
-      if (success) {
+      if (!success) {
         toast({
-          title: "Account Created Successfully!",
-          description: "Your 30-day free trial has started. Welcome to Brand Shield!",
-        });
-        
-        // In a real app, you would save the additional form data to your backend
-        console.log("User signup data:", formData);
-        
-        navigate("/");
-      } else {
-        toast({
-          title: "Signup Failed",
+          title: "Account Creation Failed",
           description: "Unable to create account. Please try again.",
+          variant: "destructive"
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Store signup data temporarily
+      localStorage.setItem('pendingSignupData', JSON.stringify(formData));
+      
+      // Create Stripe checkout session for trial with subscription
+      const stripe = window.Stripe ? window.Stripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY) : null;
+      if (!stripe) {
+        toast({
+          title: "Payment System Error",
+          description: "Payment system not available. Please try again.",
+          variant: "destructive"
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Redirect to Stripe Checkout with trial period
+      const response = await fetch('/api/create-trial-subscription', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          name: fullName,
+          trialDays: 30,
+          priceAmount: 2900, // $29.00 in cents
+        }),
+      });
+
+      const { sessionId } = await response.json();
+      
+      // Redirect to Stripe Checkout
+      const { error } = await stripe.redirectToCheckout({
+        sessionId: sessionId,
+      });
+
+      if (error) {
+        toast({
+          title: "Payment Error",
+          description: error.message,
           variant: "destructive"
         });
       }
     } catch (error) {
       toast({
         title: "Error",
-        description: "An error occurred during signup",
+        description: "An error occurred during signup. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -280,19 +316,31 @@ export default function Signup() {
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg border border-blue-200">
         <h3 className="text-lg font-semibold text-blue-900 mb-4 flex items-center">
           <Shield className="h-5 w-5 mr-2" />
-          Your Brand Shield Trial
+          Complete Your Brand Shield Setup
         </h3>
         
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-blue-800">30-Day Free Trial</span>
+          <div className="flex items-center justify-between p-3 bg-white rounded-lg border">
+            <div className="flex items-center space-x-3">
+              <CreditCard className="h-5 w-5 text-blue-600" />
+              <div>
+                <p className="font-medium text-gray-900">30-Day Free Trial</p>
+                <p className="text-sm text-gray-600">No charges for 30 days</p>
+              </div>
+            </div>
             <Badge variant="secondary" className="bg-green-100 text-green-800">
               FREE
             </Badge>
           </div>
           
-          <div className="flex items-center justify-between">
-            <span className="text-blue-800">After Trial: Monthly Subscription</span>
+          <div className="flex items-center justify-between p-3 bg-white rounded-lg border">
+            <div className="flex items-center space-x-3">
+              <CreditCard className="h-5 w-5 text-gray-600" />
+              <div>
+                <p className="font-medium text-gray-900">After Trial</p>
+                <p className="text-sm text-gray-600">Automatic billing starts</p>
+              </div>
+            </div>
             <Badge variant="default" className="bg-blue-100 text-blue-800">
               $29/month
             </Badge>
@@ -326,6 +374,18 @@ export default function Signup() {
         </div>
       </div>
       
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <div className="flex items-start space-x-2">
+          <CreditCard className="h-5 w-5 text-yellow-600 mt-0.5" />
+          <div>
+            <h4 className="font-medium text-yellow-800">Payment Required</h4>
+            <p className="text-sm text-yellow-700 mt-1">
+              A valid payment method is required to start your trial. You won't be charged until after your 30-day free trial ends.
+            </p>
+          </div>
+        </div>
+      </div>
+      
       <div className="space-y-4">
         <div className="flex items-start space-x-3">
           <input
@@ -336,7 +396,7 @@ export default function Signup() {
             className="mt-1"
           />
           <Label htmlFor="agreedToTrial" className="text-sm">
-            I understand that my 30-day free trial will automatically convert to a $29/month subscription unless I cancel before the trial ends. I can cancel anytime during the trial with no charges.
+            I understand that I'm starting a 30-day free trial that will automatically convert to a $29/month subscription. I can cancel anytime during the trial with no charges.
           </Label>
         </div>
         
@@ -374,9 +434,9 @@ export default function Signup() {
             <div className="flex justify-center mb-6">
               <Shield className="h-12 w-12 text-blue-600" />
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Create Your Brand Shield Account</h1>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Start Your Brand Protection</h1>
             <p className="text-xl text-gray-600">
-              Start your 30-day free trial today
+              30-day free trial • $29/month after trial
             </p>
             
             {/* Progress indicator */}
@@ -401,7 +461,7 @@ export default function Signup() {
               <span className="mx-4">•</span>
               <span>Brand Setup</span>
               <span className="mx-4">•</span>
-              <span>Trial Confirmation</span>
+              <span>Payment & Start Trial</span>
             </div>
           </div>
           
@@ -410,12 +470,12 @@ export default function Signup() {
               <CardTitle>
                 {step === 1 && "Personal Information"}
                 {step === 2 && "Brand Protection Setup"}
-                {step === 3 && "Trial Confirmation"}
+                {step === 3 && "Complete Registration"}
               </CardTitle>
               <CardDescription>
                 {step === 1 && "Tell us about yourself and create your secure account"}
                 {step === 2 && "Configure your brand monitoring preferences"}
-                {step === 3 && "Review and confirm your trial subscription"}
+                {step === 3 && "Add payment method and start your free trial"}
               </CardDescription>
             </CardHeader>
             
@@ -431,11 +491,11 @@ export default function Signup() {
                   </Button>
                 ) : (
                   <Button 
-                    onClick={handleSignup} 
+                    onClick={handleSignupWithStripe} 
                     disabled={loading || !formData.agreedToTrial || !formData.agreedToTerms}
                     className="px-8"
                   >
-                    {loading ? "Creating Account..." : "Start Free Trial"}
+                    {loading ? "Processing..." : "Add Payment & Start Trial"}
                   </Button>
                 )}
               </div>
